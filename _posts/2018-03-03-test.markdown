@@ -1,9 +1,5 @@
 ---
 layout: post
-title:  "浅识系列之Hadoop HA"
-description:                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
-date:   2018-06-03 10:50:00 +0530
-author: huangxiao
 ---
 Hadoop HA 是hadoop2.x才提出来的
 
