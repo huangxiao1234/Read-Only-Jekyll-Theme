@@ -1,6 +1,7 @@
 ---
 layout: post
 title:  "浅识系列之Hadoop HA"
+description:呵呵
 ---
 ![]({{site.baseurl}}/images/pic03.jpg)
 Hadoop HA 是hadoop2.x才提出来的
