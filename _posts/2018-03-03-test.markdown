@@ -1,6 +1,8 @@
 ---
 layout: post
+title:  "浅识系列之Hadoop HA"
 ---
+![]({{site.baseurl}}/images/spark2.png)
 Hadoop HA 是hadoop2.x才提出来的
 
 在这里简单的介绍一下hadoop ha是什么
@@ -11,28 +13,28 @@ Hadoop HA 是hadoop2.x才提出来的
 
 * HadoopHA->HDFSHA
 * HDFS基本结构
-* Namenode
-* 元数据结构
-* 内存镜像
-* 磁盘镜像Fsimage
-* 操作日志Editlog
-* Datanode
+    * Namenode
+        * 元数据结构
+            * 内存镜像
+            * 磁盘镜像Fsimage
+            * 操作日志Editlog
+        * Datanode
 * Hadoop1.x
-* Secondarynamenode
+    * Secondarynamenode
 * Hadoop2.x
-* Namenode同步
-* Activenamenode/Standbynamenode
-* Quorum Journal Manager(QJM)
-* 主备切换
-* zkfc
-* zookeeper
+    * Namenode同步
+        * Activenamenode/Standbynamenode
+        * Quorum Journal Manager(QJM)
+    * 主备切换
+        * zkfc
+        * zookeeper
 
 # Hadoop HA
 
 * HA->High Availability
 * Hadoop
-* HDFS
-* Mapreduce
+    * HDFS
+    * Mapreduce
 
 其实Hadoop HA说的是HDFS HA，因此需要来了解一下HDFS的基本知识
 
@@ -40,13 +42,13 @@ Hadoop HA 是hadoop2.x才提出来的
 
 
 * Namenode
-* keeps all metadata in RAM
-* managers all metadata information
+    * keeps all metadata in RAM
+    * managers all metadata information
 
 
 * Datanode
-* store blocks of data and serve them tothe client
-* replication
+    * store blocks of data and serve them tothe client
+    * replication
 
 
 ![]({{site.baseurl}}/images/spark1.png)
@@ -70,9 +72,9 @@ Hadoop HA 是hadoop2.x才提出来的
 
 
 * Fsimage
-* 在NameNode启动时对整个文件系统的快照（即内存中的元数据持久化存储到磁盘）
+    * 在NameNode启动时对整个文件系统的快照（即内存中的元数据持久化存储到磁盘）
 * Editlog
-* 在NameNode启动后，对文件系统的改动序列（client对元数据的操作记录）
+    * 在NameNode启动后，对文件系统的改动序列（client对元数据的操作记录）
 
 ### Namenode工作流程
 
