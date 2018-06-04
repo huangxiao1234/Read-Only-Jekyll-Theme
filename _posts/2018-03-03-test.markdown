@@ -2,7 +2,7 @@
 layout: post
 title:  "浅识系列之Hadoop HA"
 ---
-![]({{site.baseurl}}/images/spark2.png)
+![]({{site.baseurl}}/images/pic03.png)
 Hadoop HA 是hadoop2.x才提出来的
 
 在这里简单的介绍一下hadoop ha是什么
@@ -18,7 +18,7 @@ Hadoop HA 是hadoop2.x才提出来的
             * 内存镜像
             * 磁盘镜像Fsimage
             * 操作日志Editlog
-        * Datanode
+    * Datanode
 * Hadoop1.x
     * Secondarynamenode
 * Hadoop2.x
@@ -63,7 +63,7 @@ Hadoop HA 是hadoop2.x才提出来的
 
 `④DN(host2)将客户端写入的数据同步到其余几个副本`
 
-只是简单了解了一下hdfs的读写流程还不够，还需要了解一下具体的namenode结构`
+只是简单了解了一下hdfs的读写流程还不够，还需要了解一下具体的namenode结构
 
 
 
@@ -91,6 +91,7 @@ Hadoop HA 是hadoop2.x才提出来的
 以上介绍的都是Hadoop 1.x的运行机制
 
 接下来要正式进入主题了
+
 
 # Hadoop HA 的提出
 
@@ -139,6 +140,7 @@ Hadoop 2.x 总体框架
 * 隔离双写
 
 >当NN发生了切换，而旧的NN来不及关闭还在进行写入JN操作时,新的NN也在写，就会发生脑裂现象，即同时两个NN进行写入，那么如何保证只能一个NN成功写入是隔离双写需要解决的问题。
+
 * 恢复in-process日志
 
 >当NN对个别JN写入失败了，但最后返回了成功的信号，那么下一次写入之前如何保证JN里面的数据都是一样的呢？恢复in-process日志需要解决的这个问题。
