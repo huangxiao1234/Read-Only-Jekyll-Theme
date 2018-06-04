@@ -1,0 +1,187 @@
+---
+layout: post
+title:  "浅识系列之Hadoop HA"
+---
+![]({{site.baseurl}}/images/pic03.jpg)
+Hadoop HA 是hadoop2.x才提出来的
+
+在这里简单的介绍一下hadoop ha是什么
+
+介绍之前需要知道hadoop 1.x的基本架构，通过对比来认识hadoop ha
+
+# 目录
+
+* HadoopHA->HDFSHA
+* HDFS基本结构
+    * Namenode
+        * 元数据结构
+            * 内存镜像
+            * 磁盘镜像Fsimage
+            * 操作日志Editlog
+    * Datanode
+* Hadoop1.x
+    * Secondarynamenode
+* Hadoop2.x
+    * Namenode同步
+        * Activenamenode/Standbynamenode
+        * Quorum Journal Manager(QJM)
+    * 主备切换
+        * zkfc
+        * zookeeper
+
+# Hadoop HA
+
+* HA->High Availability
+* Hadoop
+    * HDFS
+    * Mapreduce
+
+其实Hadoop HA说的是HDFS HA，因此需要来了解一下HDFS的基本知识
+
+## HDFS  （Hadoop Distributed File System）
+
+
+* Namenode
+    * keeps all metadata in RAM
+    * managers all metadata information
+
+
+* Datanode
+    * store blocks of data and serve them tothe client
+    * replication
+
+
+![]({{site.baseurl}}/images/spark1.png)
+
+通过上面这个流程图我们来了解一下HDFS的读写流程（以写为例）
+
+`①客户端需要向hdfs写入文件，于是向namenode(NN)发出写的请求。“我现在想在xx位置写入文件，可以吗”`
+
+`②NN收到请求，检查xx位置是否存在，若存在则返回xx位置的DN信息。“可以。需要写入xx位置请去找DN(host2)”`
+
+`③客户端与DN(host2)建立连接，按块写入数据。`
+
+`④DN(host2)将客户端写入的数据同步到其余几个副本`
+
+只是简单了解了一下hdfs的读写流程还不够，还需要了解一下具体的namenode结构
+
+
+
+## Namenode
+
+
+
+* Fsimage
+    * 在NameNode启动时对整个文件系统的快照（即内存中的元数据持久化存储到磁盘）
+* Editlog
+    * 在NameNode启动后，对文件系统的改动序列（client对元数据的操作记录）
+
+### Namenode工作流程
+
+![]({{site.baseurl}}/images/spark2.png)
+
+>当namenode启动时，会从磁盘中读取fsimage的信息并与editlog合并后放入内存（client与NN是在内存交互的）。当client对内存中的元数据进行修改时，会将操作写入edit log中。这么看来，如果NN不重启的话，fsimage就没法与editlog合并，因此editlog会越来越大。这显然是不合理的，因此需要定期将editlogs与fsimage合并，然而这个合并的过程肯定也不能放在NN中执行（效率低，负载大），因此secondary namenode应运而生。
+
+## Secondary namenode
+
+![]({{site.baseurl}}/images/spark3.png)
+
+>secondary namenode 做的事情就是将namenode的editlog读过来，然后与fsimage合并,再将生成的fsimage放回NN，这样NN中的fsimage时刻都是最新的，实现了元数据的更新。这个过程叫做checkpoint。这样做的好处就是，secondary namenode不仅为NN减轻了合并的负担，而且还能为元数据做一个备份。但是这里要注意的是，secondary namenode只能完成checkpoint的功能，没有办法像NN一样运作。所以不要把secondary namenode作为NN的备份看待。
+
+以上介绍的都是Hadoop 1.x的运行机制
+
+接下来要正式进入主题了
+
+
+# Hadoop HA 的提出
+
+从Hadoop 1.x来看，整个hdfs系统只有NN一个控制节点，当唯一的NN宕机了，那么整个系统将会没法运作。因此为了解决单一NN宕机问题，提出了HA。所谓的HA主要体现在两个方面
+
+### 数据同步
+
+### 主备切换
+
+
+因此，接着也将从这两个方面来说明HA是如何实现的
+
+Hadoop 2.x 总体框架
+
+![]({{site.baseurl}}/images/spark4.png)
+
+## The new Namenodes
+
+>首先为了解决单一节点故障的问题，将NN进行了“备份”，即当一个NN宕机时可以有替补的NN及时站出来继续工作。正在工作的叫做 Active namenode，替补的NN叫做Standby namenode，功能跟Hadoop1.x的NN没差。
+
+因此现在需要考虑的问题就是，两个NN的数据如何同步？如何切换？
+
+## 如何同步
+
+### Quorum Journal Manager
+
+简单了解一下其结构如下
+
+![]({{site.baseurl}}/images/spark5.png)
+
+#### 同步的流程
+
+>ANN将editlog写入JournalNode(JN)，SNN从JN中读，从而实现editlog的同步，在SNN中会完成像secondary namenode的checkpoint功能，把更新好的fsimage存回ANN，这样两个NN的元数据就同步了。
+
+这个同步机制需要面临两个问题
+
+* 如何知道写入完成
+* 如何保证JN数据一致
+
+### 如何知道写入完成
+
+* 有奇数个JN，只有当大于JN总数的一半+1个JN返回了写入成功的信号才算写入成功。
+
+### 如何保证JN数据一致
+
+* 隔离双写
+
+>当NN发生了切换，而旧的NN来不及关闭还在进行写入JN操作时,新的NN也在写，就会发生脑裂现象，即同时两个NN进行写入，那么如何保证只能一个NN成功写入是隔离双写需要解决的问题。
+
+* 恢复in-process日志
+
+>当NN对个别JN写入失败了，但最后返回了成功的信号，那么下一次写入之前如何保证JN里面的数据都是一样的呢？恢复in-process日志需要解决的这个问题。
+
+在介绍之前再了解一个概念
+
+## Epoch number
+
+* 当NN成为活动结点时，其会被赋予一个EpochNumber
+* 每个EpochNumber是惟一的，不会有相同的EpochNumber出现
+* EpochNumber有严格顺序保证，每次NN切换后其EpochNumber都会自增1，后面生成的EpochNumber都会大于前面的EpochNumber
+
+### 隔离双写
+
+* 第一步，在对EditLog作任何修改前，QuorumJournalManager(NameNode上)必须被赋予一个EpochNumber。
+* 第二步，QJM把自己的EpochNumber通过newEpoch(N)的方式发送给所有JN结点。
+* 第三步，当JN收到newEpoch请求后，会把QJM的EpochNumber保存到一个lastPromisedEpoch变量中并持久化到本地磁盘
+* 第四步，ANN同步日志到JN的任何RPC请求（如logEdits(),startLogSegment()等），都必须包含ANN的EpochNumber
+* 第五步，JN在收到RPC请求后，会将之与lastPromisedEpoch对比，如果请求的EpochNumber小于lastPromisedEpoch,将会拒绝同步请求，反之，会接受同步请求并将请求的EpochNumber保存在lastPromisedEpoch
+
+### 恢复in-process日志
+
+* ANN先向所有JN发送getJournalState请求；
+* JN会向ANN返回一个Epoch（lastPromisedEpoch)；
+* ANN收到大多数JN的Epoch后，选择最大的一个并加1作为当前新的Epoch，然后向JN发送新的newEpoch请求，把新的Epoch下发给JN；
+* JN收到新的Epoch后，和lastPromisedEpoch对比，若更大则更新到本地并返回给ANN自己本地一个最新EditLogSegment起始事务Id,若小则返回NN错误；
+* ANN收到多数JN成功响应后认为Epoch生成成功，开始准备日志恢复；
+* ANN会选择一个最大的EditLogSegment事务ID作为恢复依据，然后向JN发送prepareRecovery； RPC请求，对应Paxos协议2p阶段的Phase1a，若多数JN响应prepareRecovery成功，则可认为Phase1a阶段成功；
+* ANN选择进行同步的数据源，向JN发送acceptRecovery RPC请求，并将数据源作为参数传给JN。
+* JN收到acceptRecovery请求后，会从JournalNodeHttpServer下载EditLogSegment并替换到本地保存的EditLogSegment，对应Paxos协议2p阶段的Phase1b，完成后返回ANN请求成功状态。
+* ANN收到多数JN的响应成功请求后，向JN发送finalizeLogSegment请求，表示数据恢复完成，这样之后所有JN上的日志就能保持一致。
+
+
+## 主备切换
+
+主要通过ZKFC、Zookeeper两大部件，流程图如下
+
+![]({{site.baseurl}}/images/spark6.png)
+
+如此一来，Hadoop HA就差不多介绍完了
+
+如果还有工夫深究，会继续补充
+
+
